@@ -1,270 +1,391 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
+import { Movie, TVShow } from '../types';
+import { TMDBService } from '../services/tmdb';
+import MediaCarousel from '../components/trending/MediaCarousel';
+import TrendingFilters from '../components/trending/TrendingFilters';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const TrendingContainer = styled.div`
-  padding: ${({ theme }) => theme.spacing[6]} 0;
   min-height: calc(100vh - ${({ theme }) => theme.layout.headerHeight});
+  padding: ${({ theme }) => theme.spacing[6]} 0;
 `;
 
 const TrendingHeader = styled.div`
-  background: ${({ theme }) => theme.colors.background.secondary};
-  padding: ${({ theme }) => theme.spacing[8]} 0;
+  background: linear-gradient(
+    135deg,
+    ${({ theme }) => theme.colors.primary[500]} 0%,
+    ${({ theme }) => theme.colors.primary[700]} 100%
+  );
+  color: white;
+  padding: ${({ theme }) => theme.spacing[12]} 0
+    ${({ theme }) => theme.spacing[8]};
   margin-bottom: ${({ theme }) => theme.spacing[8]};
+  text-align: center;
 `;
 
-const TrendingTitle = styled.h1`
+const HeaderTitle = styled.h1`
   font-size: ${({ theme }) => theme.fontSizes['4xl']};
   font-weight: ${({ theme }) => theme.fontWeights.bold};
-  text-align: center;
   margin-bottom: ${({ theme }) => theme.spacing[4]};
-  color: ${({ theme }) => theme.colors.text.primary};
 
   ${({ theme }) => theme.mediaQueries.mobile} {
     font-size: ${({ theme }) => theme.fontSizes['2xl']};
   }
 `;
 
-const TrendingSubtitle = styled.p`
-  text-align: center;
-  color: ${({ theme }) => theme.colors.text.secondary};
+const HeaderSubtitle = styled.p`
   font-size: ${({ theme }) => theme.fontSizes.lg};
+  opacity: 0.9;
   max-width: 600px;
   margin: 0 auto;
+  line-height: ${({ theme }) => theme.lineHeights.relaxed};
+
+  ${({ theme }) => theme.mediaQueries.mobile} {
+    font-size: ${({ theme }) => theme.fontSizes.base};
+    padding: 0 ${({ theme }) => theme.spacing[4]};
+  }
 `;
 
 const ContentContainer = styled.div`
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 ${({ theme }) => theme.spacing[4]};
 `;
 
-const FilterContainer = styled.div`
+const SectionContainer = styled.div`
+  margin-bottom: ${({ theme }) => theme.spacing[12]};
+`;
+
+const LoadingContainer = styled.div`
   display: flex;
-  gap: ${({ theme }) => theme.spacing[4]};
-  flex-wrap: wrap;
   justify-content: center;
-  margin-bottom: ${({ theme }) => theme.spacing[8]};
-`;
-
-const FilterChip = styled.button<{ active?: boolean }>`
-  padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[4]};
-  border: 2px solid ${({ theme, active }) =>
-    active ? theme.colors.primary[500] : theme.colors.border.light};
-  background: ${({ theme, active }) =>
-    active ? theme.colors.primary[50] : theme.colors.background.primary};
-  color: ${({ theme, active }) =>
-    active ? theme.colors.primary[700] : theme.colors.text.secondary};
-  border-radius: ${({ theme }) => theme.borderRadius.full};
-  font-size: ${({ theme }) => theme.fontSizes.sm};
-  font-weight: ${({ theme }) => theme.fontWeights.medium};
-  cursor: pointer;
-  transition: all ${({ theme }) => theme.durations.fast} ${({ theme }) => theme.easings.easeInOut};
-
-  &:hover {
-    border-color: ${({ theme }) => theme.colors.primary[400]};
-    background: ${({ theme }) => theme.colors.primary[50]};
-  }
-`;
-
-const TimeWindowContainer = styled.div`
-  display: flex;
-  gap: ${({ theme }) => theme.spacing[2]};
-  justify-content: center;
-  margin-bottom: ${({ theme }) => theme.spacing[8]};
-`;
-
-const TimeWindowButton = styled.button<{ active?: boolean }>`
-  padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[4]};
-  background: ${({ theme, active }) =>
-    active ? theme.colors.accent[500] : theme.colors.background.secondary};
-  color: ${({ theme, active }) =>
-    active ? 'white' : theme.colors.text.secondary};
-  border: none;
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  font-size: ${({ theme }) => theme.fontSizes.sm};
-  font-weight: ${({ theme }) => theme.fontWeights.medium};
-  cursor: pointer;
-  transition: all ${({ theme }) => theme.durations.fast} ${({ theme }) => theme.easings.easeInOut};
-
-  &:hover {
-    background: ${({ theme, active }) =>
-      active ? theme.colors.accent[600] : theme.colors.background.tertiary};
-  }
-`;
-
-const PlaceholderGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: ${({ theme }) => theme.spacing[6]};
-  margin-bottom: ${({ theme }) => theme.spacing[8]};
-`;
-
-const PlaceholderCard = styled.div`
-  background: ${({ theme }) => theme.colors.background.card};
-  border-radius: ${({ theme }) => theme.borderRadius.lg};
-  padding: ${({ theme }) => theme.spacing[4]};
-  box-shadow: ${({ theme }) => theme.shadows.md};
-  text-align: center;
-  transition: transform ${({ theme }) => theme.durations.fast} ${({ theme }) => theme.easings.easeInOut};
-
-  &:hover {
-    transform: translateY(-4px);
-    box-shadow: ${({ theme }) => theme.shadows.lg};
-  }
-`;
-
-const PlaceholderPoster = styled.div`
-  width: 100%;
-  height: 250px;
-  background: ${({ theme }) => theme.colors.neutral[200]};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: ${({ theme }) => theme.fontSizes['3xl']};
-  color: ${({ theme }) => theme.colors.neutral[400]};
-  margin-bottom: ${({ theme }) => theme.spacing[3]};
+  min-height: 400px;
 `;
 
-const PlaceholderTitle = styled.h3`
-  font-size: ${({ theme }) => theme.fontSizes.base};
-  font-weight: ${({ theme }) => theme.fontWeights.semibold};
-  margin-bottom: ${({ theme }) => theme.spacing[2]};
-  color: ${({ theme }) => theme.colors.text.primary};
-  line-height: ${({ theme }) => theme.lineHeights.tight};
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-`;
-
-const PlaceholderMeta = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: ${({ theme }) => theme.fontSizes.sm};
-`;
-
-const RatingBadge = styled.span`
-  background: ${({ theme }) => theme.colors.rating.good};
-  color: white;
-  padding: ${({ theme }) => theme.spacing[0.5]} ${({ theme }) => theme.spacing[1.5]};
-  border-radius: ${({ theme }) => theme.borderRadius.full};
-  font-size: ${({ theme }) => theme.fontSizes.xs};
-  font-weight: ${({ theme }) => theme.fontWeights.bold};
-`;
-
-const LoadingMessage = styled.div`
+const ErrorContainer = styled.div`
   text-align: center;
-  padding: ${({ theme }) => theme.spacing[12]} ${({ theme }) => theme.spacing[4]};
+  padding: ${({ theme }) => theme.spacing[12]}
+    ${({ theme }) => theme.spacing[4]};
   color: ${({ theme }) => theme.colors.text.secondary};
 `;
 
-const LoadingIcon = styled.div`
+const ErrorIcon = styled.div`
   font-size: ${({ theme }) => theme.fontSizes['6xl']};
   margin-bottom: ${({ theme }) => theme.spacing[4]};
 `;
 
-const LoadingTitle = styled.h3`
+const ErrorTitle = styled.h2`
   font-size: ${({ theme }) => theme.fontSizes['2xl']};
   font-weight: ${({ theme }) => theme.fontWeights.semibold};
-  margin-bottom: ${({ theme }) => theme.spacing[2]};
+  margin-bottom: ${({ theme }) => theme.spacing[4]};
   color: ${({ theme }) => theme.colors.text.primary};
 `;
 
-const LoadingText = styled.p`
+const ErrorText = styled.p`
   font-size: ${({ theme }) => theme.fontSizes.lg};
-  max-width: 500px;
-  margin: 0 auto;
-  line-height: ${({ theme }) => theme.lineHeights.relaxed};
+  margin-bottom: ${({ theme }) => theme.spacing[6]};
+`;
+
+const RetryButton = styled.button`
+  background: ${({ theme }) => theme.colors.primary[500]};
+  color: white;
+  border: none;
+  padding: ${({ theme }) => theme.spacing[3]} ${({ theme }) => theme.spacing[6]};
+  border-radius: ${({ theme }) => theme.borderRadius.lg};
+  font-size: ${({ theme }) => theme.fontSizes.base};
+  font-weight: ${({ theme }) => theme.fontWeights.medium};
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.durations.fast}
+    ${({ theme }) => theme.easings.easeInOut};
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.primary[600]};
+    transform: translateY(-2px);
+  }
+`;
+
+const StatsContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: ${({ theme }) => theme.spacing[8]};
+  margin-bottom: ${({ theme }) => theme.spacing[8]};
+  flex-wrap: wrap;
+`;
+
+const StatCard = styled.div`
+  background: ${({ theme }) => theme.colors.background.card};
+  border-radius: ${({ theme }) => theme.borderRadius.lg};
+  padding: ${({ theme }) => theme.spacing[6]};
+  box-shadow: ${({ theme }) => theme.shadows.sm};
+  text-align: center;
+  min-width: 150px;
+`;
+
+const StatNumber = styled.div`
+  font-size: ${({ theme }) => theme.fontSizes['3xl']};
+  font-weight: ${({ theme }) => theme.fontWeights.bold};
+  color: ${({ theme }) => theme.colors.primary[500]};
+  margin-bottom: ${({ theme }) => theme.spacing[2]};
+`;
+
+const StatLabel = styled.div`
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  font-weight: ${({ theme }) => theme.fontWeights.medium};
 `;
 
 const Trending: React.FC = () => {
-  const [activeFilter, setActiveFilter] = React.useState<'all' | 'movie' | 'tv'>('all');
-  const [timeWindow, setTimeWindow] = React.useState<'day' | 'week'>('week');
+  const [timeWindow, setTimeWindow] = useState<'day' | 'week'>('week');
+  const [mediaType, setMediaType] = useState<'all' | 'movie' | 'tv'>('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock trending data - will be replaced with actual API calls
-  const mockTrendingItems = Array.from({ length: 12 }, (_, index) => ({
-    id: index + 1,
-    title: `Trending ${activeFilter === 'tv' ? 'Show' : 'Movie'} ${index + 1}`,
-    rating: (Math.random() * 3 + 7).toFixed(1),
-    year: 2024 - Math.floor(Math.random() * 5),
-    type: activeFilter === 'tv' ? 'TV Show' : 'Movie',
-  }));
+  // Content state
+  const [trendingMovies, setTrendingMovies] = useState<Movie[]>([]);
+  const [trendingTVShows, setTrendingTVShows] = useState<TVShow[]>([]);
+  const [popularMovies, setPopularMovies] = useState<Movie[]>([]);
+  const [popularTVShows, setPopularTVShows] = useState<TVShow[]>([]);
+  const [topRatedMovies, setTopRatedMovies] = useState<Movie[]>([]);
+  const [topRatedTVShows, setTopRatedTVShows] = useState<TVShow[]>([]);
+
+  const fetchTrendingContent = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const promises = [];
+
+      // Always fetch movie and TV content separately for better type safety
+      promises.push(
+        TMDBService.getTrendingMovies(timeWindow, 1).then(response =>
+          setTrendingMovies(response.results.slice(0, 20))
+        ),
+        TMDBService.getTrendingTVShows(timeWindow, 1).then(response =>
+          setTrendingTVShows(response.results.slice(0, 20))
+        )
+      );
+
+      if (mediaType === 'movie' || mediaType === 'all') {
+        promises.push(
+          TMDBService.getPopularMovies(1).then(response =>
+            setPopularMovies(response.results.slice(0, 20))
+          ),
+          TMDBService.getTopRatedMovies(1).then(response =>
+            setTopRatedMovies(response.results.slice(0, 20))
+          )
+        );
+      }
+
+      if (mediaType === 'tv' || mediaType === 'all') {
+        promises.push(
+          TMDBService.getPopularTVShows(1).then(response =>
+            setPopularTVShows(response.results.slice(0, 20))
+          ),
+          TMDBService.getTopRatedTVShows(1).then(response =>
+            setTopRatedTVShows(response.results.slice(0, 20))
+          )
+        );
+      }
+
+      await Promise.all(promises);
+    } catch (err) {
+      console.error('Error fetching trending content:', err);
+      setError('Failed to load trending content. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  }, [timeWindow, mediaType]);
+
+  useEffect(() => {
+    fetchTrendingContent();
+  }, [fetchTrendingContent]);
+
+  const handleRetry = () => {
+    fetchTrendingContent();
+  };
+
+  const getTimeWindowText = (): string => {
+    return timeWindow === 'day' ? 'Today' : 'This Week';
+  };
+
+  const getMediaTypeText = (): string => {
+    switch (mediaType) {
+      case 'movie':
+        return 'Movies';
+      case 'tv':
+        return 'TV Shows';
+      default:
+        return 'All Content';
+    }
+  };
+
+  const getTotalCount = (): number => {
+    let count = 0;
+    if (mediaType === 'movie' || mediaType === 'all')
+      count += trendingMovies.length;
+    if (mediaType === 'tv' || mediaType === 'all')
+      count += trendingTVShows.length;
+    return count;
+  };
+
+  const getPopularCount = (): number => {
+    if (mediaType === 'movie') return popularMovies.length;
+    if (mediaType === 'tv') return popularTVShows.length;
+    return popularMovies.length + popularTVShows.length;
+  };
+
+  const getTopRatedCount = (): number => {
+    if (mediaType === 'movie') return topRatedMovies.length;
+    if (mediaType === 'tv') return topRatedTVShows.length;
+    return topRatedMovies.length + topRatedTVShows.length;
+  };
+
+  if (loading) {
+    return (
+      <TrendingContainer>
+        <TrendingHeader>
+          <HeaderTitle>Trending Content</HeaderTitle>
+          <HeaderSubtitle>
+            Discover what's popular and trending right now
+          </HeaderSubtitle>
+        </TrendingHeader>
+        <LoadingContainer>
+          <LoadingSpinner size="large" />
+        </LoadingContainer>
+      </TrendingContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <TrendingContainer>
+        <TrendingHeader>
+          <HeaderTitle>Trending Content</HeaderTitle>
+          <HeaderSubtitle>
+            Discover what's popular and trending right now
+          </HeaderSubtitle>
+        </TrendingHeader>
+        <ErrorContainer>
+          <ErrorIcon>😞</ErrorIcon>
+          <ErrorTitle>Oops! Something went wrong</ErrorTitle>
+          <ErrorText>{error}</ErrorText>
+          <RetryButton onClick={handleRetry}>Try Again</RetryButton>
+        </ErrorContainer>
+      </TrendingContainer>
+    );
+  }
 
   return (
     <TrendingContainer>
       <TrendingHeader>
-        <div className="container">
-          <TrendingTitle>Trending Now</TrendingTitle>
-          <TrendingSubtitle>
-            Discover what's popular and trending in movies and TV shows
-          </TrendingSubtitle>
-        </div>
+        <HeaderTitle>Trending {getMediaTypeText()}</HeaderTitle>
+        <HeaderSubtitle>
+          Discover what's popular and trending{' '}
+          {getTimeWindowText().toLowerCase()}
+        </HeaderSubtitle>
       </TrendingHeader>
 
       <ContentContainer>
-        <FilterContainer>
-          <FilterChip
-            active={activeFilter === 'all'}
-            onClick={() => setActiveFilter('all')}
-          >
-            🔥 All Trending
-          </FilterChip>
-          <FilterChip
-            active={activeFilter === 'movie'}
-            onClick={() => setActiveFilter('movie')}
-          >
-            🎬 Movies
-          </FilterChip>
-          <FilterChip
-            active={activeFilter === 'tv'}
-            onClick={() => setActiveFilter('tv')}
-          >
-            📺 TV Shows
-          </FilterChip>
-        </FilterContainer>
+        <TrendingFilters
+          timeWindow={timeWindow}
+          mediaType={mediaType}
+          onTimeWindowChange={setTimeWindow}
+          onMediaTypeChange={setMediaType}
+        />
 
-        <TimeWindowContainer>
-          <TimeWindowButton
-            active={timeWindow === 'day'}
-            onClick={() => setTimeWindow('day')}
-          >
-            Today
-          </TimeWindowButton>
-          <TimeWindowButton
-            active={timeWindow === 'week'}
-            onClick={() => setTimeWindow('week')}
-          >
-            This Week
-          </TimeWindowButton>
-        </TimeWindowContainer>
+        <StatsContainer>
+          <StatCard>
+            <StatNumber>{getTotalCount()}</StatNumber>
+            <StatLabel>Trending {getTimeWindowText()}</StatLabel>
+          </StatCard>
+          <StatCard>
+            <StatNumber>{getPopularCount()}</StatNumber>
+            <StatLabel>Popular Items</StatLabel>
+          </StatCard>
+          <StatCard>
+            <StatNumber>{getTopRatedCount()}</StatNumber>
+            <StatLabel>Top Rated</StatLabel>
+          </StatCard>
+        </StatsContainer>
 
-        <PlaceholderGrid>
-          {mockTrendingItems.map((item) => (
-            <PlaceholderCard key={item.id}>
-              <PlaceholderPoster>
-                {activeFilter === 'tv' ? '📺' : '🎬'}
-              </PlaceholderPoster>
-              <PlaceholderTitle>{item.title}</PlaceholderTitle>
-              <PlaceholderMeta>
-                <span>{item.year}</span>
-                <RatingBadge>{item.rating}</RatingBadge>
-              </PlaceholderMeta>
-            </PlaceholderCard>
-          ))}
-        </PlaceholderGrid>
+        {/* Trending Movies */}
+        {(mediaType === 'movie' || mediaType === 'all') &&
+          trendingMovies.length > 0 && (
+            <SectionContainer>
+              <MediaCarousel
+                items={trendingMovies}
+                title={`🎬 Trending Movies ${getTimeWindowText()}`}
+                mediaType="movie"
+                showWatchlistButton={true}
+              />
+            </SectionContainer>
+          )}
 
-        <LoadingMessage>
-          <LoadingIcon>🚀</LoadingIcon>
-          <LoadingTitle>Trending Content Coming Soon</LoadingTitle>
-          <LoadingText>
-            Real trending data from TMDB API will be displayed here once the
-            trending functionality is fully implemented with proper API integration.
-          </LoadingText>
-        </LoadingMessage>
+        {/* Trending TV Shows */}
+        {(mediaType === 'tv' || mediaType === 'all') &&
+          trendingTVShows.length > 0 && (
+            <SectionContainer>
+              <MediaCarousel
+                items={trendingTVShows}
+                title={`📺 Trending TV Shows ${getTimeWindowText()}`}
+                mediaType="tv"
+                showWatchlistButton={true}
+              />
+            </SectionContainer>
+          )}
+
+        {/* Popular Movies */}
+        {(mediaType === 'movie' || mediaType === 'all') &&
+          popularMovies.length > 0 && (
+            <SectionContainer>
+              <MediaCarousel
+                items={popularMovies}
+                title="⭐ Popular Movies"
+                mediaType="movie"
+                showWatchlistButton={true}
+              />
+            </SectionContainer>
+          )}
+
+        {/* Popular TV Shows */}
+        {(mediaType === 'tv' || mediaType === 'all') &&
+          popularTVShows.length > 0 && (
+            <SectionContainer>
+              <MediaCarousel
+                items={popularTVShows}
+                title="⭐ Popular TV Shows"
+                mediaType="tv"
+                showWatchlistButton={true}
+              />
+            </SectionContainer>
+          )}
+
+        {/* Top Rated Movies */}
+        {(mediaType === 'movie' || mediaType === 'all') &&
+          topRatedMovies.length > 0 && (
+            <SectionContainer>
+              <MediaCarousel
+                items={topRatedMovies}
+                title="🏆 Top Rated Movies"
+                mediaType="movie"
+                showWatchlistButton={true}
+              />
+            </SectionContainer>
+          )}
+
+        {/* Top Rated TV Shows */}
+        {(mediaType === 'tv' || mediaType === 'all') &&
+          topRatedTVShows.length > 0 && (
+            <SectionContainer>
+              <MediaCarousel
+                items={topRatedTVShows}
+                title="🏆 Top Rated TV Shows"
+                mediaType="tv"
+                showWatchlistButton={true}
+              />
+            </SectionContainer>
+          )}
       </ContentContainer>
     </TrendingContainer>
   );

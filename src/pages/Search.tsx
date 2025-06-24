@@ -1,5 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import { useSearchParams } from 'react-router-dom';
+import { useSearch, useSearchSuggestions } from '../hooks/useSearch';
+import SearchResults from '../components/search/SearchResults';
+import Pagination from '../components/common/Pagination';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const SearchContainer = styled.div`
   padding: ${({ theme }) => theme.spacing[6]} 0;
@@ -56,7 +61,8 @@ const SearchInput = styled.input`
   font-size: ${({ theme }) => theme.fontSizes.lg};
   background: ${({ theme }) => theme.colors.background.primary};
   color: ${({ theme }) => theme.colors.text.primary};
-  transition: border-color ${({ theme }) => theme.durations.fast} ${({ theme }) => theme.easings.easeInOut};
+  transition: border-color ${({ theme }) => theme.durations.fast}
+    ${({ theme }) => theme.easings.easeInOut};
 
   &:focus {
     outline: none;
@@ -78,7 +84,8 @@ const SearchButton = styled.button`
   font-size: ${({ theme }) => theme.fontSizes.lg};
   font-weight: ${({ theme }) => theme.fontWeights.semibold};
   cursor: pointer;
-  transition: background-color ${({ theme }) => theme.durations.fast} ${({ theme }) => theme.easings.easeInOut};
+  transition: background-color ${({ theme }) => theme.durations.fast}
+    ${({ theme }) => theme.easings.easeInOut};
 
   &:hover {
     background: ${({ theme }) => theme.colors.primary[600]};
@@ -100,8 +107,9 @@ const FilterContainer = styled.div`
 
 const FilterChip = styled.button<{ active?: boolean }>`
   padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[4]};
-  border: 2px solid ${({ theme, active }) =>
-    active ? theme.colors.primary[500] : theme.colors.border.light};
+  border: 2px solid
+    ${({ theme, active }) =>
+      active ? theme.colors.primary[500] : theme.colors.border.light};
   background: ${({ theme, active }) =>
     active ? theme.colors.primary[50] : theme.colors.background.primary};
   color: ${({ theme, active }) =>
@@ -110,7 +118,8 @@ const FilterChip = styled.button<{ active?: boolean }>`
   font-size: ${({ theme }) => theme.fontSizes.sm};
   font-weight: ${({ theme }) => theme.fontWeights.medium};
   cursor: pointer;
-  transition: all ${({ theme }) => theme.durations.fast} ${({ theme }) => theme.easings.easeInOut};
+  transition: all ${({ theme }) => theme.durations.fast}
+    ${({ theme }) => theme.easings.easeInOut};
 
   &:hover {
     border-color: ${({ theme }) => theme.colors.primary[400]};
@@ -126,7 +135,8 @@ const ResultsContainer = styled.div`
 
 const PlaceholderMessage = styled.div`
   text-align: center;
-  padding: ${({ theme }) => theme.spacing[12]} ${({ theme }) => theme.spacing[4]};
+  padding: ${({ theme }) => theme.spacing[12]}
+    ${({ theme }) => theme.spacing[4]};
   color: ${({ theme }) => theme.colors.text.secondary};
 `;
 
@@ -150,13 +160,62 @@ const PlaceholderText = styled.p`
 `;
 
 const Search: React.FC = () => {
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [activeFilter, setActiveFilter] = React.useState<'all' | 'movie' | 'tv'>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'movie' | 'tv'>(
+    (searchParams.get('type') as 'all' | 'movie' | 'tv') || 'all'
+  );
+  const [currentPage, setCurrentPage] = useState(
+    parseInt(searchParams.get('page') || '1', 10)
+  );
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Get search results
+  const {
+    results,
+    isLoading,
+    isError,
+    error,
+    totalResults,
+    totalPages,
+    hasNextPage,
+    hasPreviousPage,
+  } = useSearch(searchQuery, activeFilter, currentPage);
+
+  // Get popular suggestions for empty state
+  const { suggestions, isLoading: suggestionsLoading } = useSearchSuggestions();
+
+  // Update URL when search parameters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set('q', searchQuery);
+    if (activeFilter !== 'all') params.set('type', activeFilter);
+    if (currentPage > 1) params.set('page', currentPage.toString());
+
+    setSearchParams(params);
+  }, [searchQuery, activeFilter, currentPage, setSearchParams]);
+
+  // Reset page when query or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeFilter]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Search functionality will be implemented here
-    console.log('Search query:', searchQuery, 'Filter:', activeFilter);
+    if (searchQuery.trim()) {
+      setCurrentPage(1);
+    }
+  };
+
+  const handleFilterChange = (filter: 'all' | 'movie' | 'tv') => {
+    setActiveFilter(filter);
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -177,29 +236,34 @@ const Search: React.FC = () => {
               type="text"
               placeholder="Search for movies, TV shows, or people..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
+              autoFocus
             />
             <SearchButton type="submit" disabled={!searchQuery.trim()}>
-              Search
+              {isLoading ? (
+                <LoadingSpinner size="small" showText={false} />
+              ) : (
+                'Search'
+              )}
             </SearchButton>
           </SearchForm>
 
           <FilterContainer>
             <FilterChip
               active={activeFilter === 'all'}
-              onClick={() => setActiveFilter('all')}
+              onClick={() => handleFilterChange('all')}
             >
               All
             </FilterChip>
             <FilterChip
               active={activeFilter === 'movie'}
-              onClick={() => setActiveFilter('movie')}
+              onClick={() => handleFilterChange('movie')}
             >
               Movies
             </FilterChip>
             <FilterChip
               active={activeFilter === 'tv'}
-              onClick={() => setActiveFilter('tv')}
+              onClick={() => handleFilterChange('tv')}
             >
               TV Shows
             </FilterChip>
@@ -207,14 +271,112 @@ const Search: React.FC = () => {
         </SearchFormContainer>
 
         <ResultsContainer>
-          <PlaceholderMessage>
-            <PlaceholderIcon>🔍</PlaceholderIcon>
-            <PlaceholderTitle>Ready to Search</PlaceholderTitle>
-            <PlaceholderText>
-              Enter a movie or TV show title above to start discovering amazing content.
-              Use filters to narrow down your search results.
-            </PlaceholderText>
-          </PlaceholderMessage>
+          {/* Show search results if we have a query */}
+          {searchQuery && (
+            <>
+              <SearchResults
+                results={results}
+                isLoading={isLoading}
+                isError={isError}
+                error={error}
+                totalResults={totalResults}
+                query={searchQuery}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
+
+              {/* Pagination */}
+              {results.length > 0 && totalPages > 1 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                />
+              )}
+            </>
+          )}
+
+          {/* Show suggestions when no search query */}
+          {!searchQuery && (
+            <PlaceholderMessage>
+              <PlaceholderIcon>🔍</PlaceholderIcon>
+              <PlaceholderTitle>Ready to Search</PlaceholderTitle>
+              <PlaceholderText>
+                Enter a movie or TV show title above to start discovering
+                amazing content. Use filters to narrow down your search results.
+              </PlaceholderText>
+
+              {/* Popular suggestions */}
+              {suggestions.length > 0 && (
+                <>
+                  <PlaceholderTitle
+                    style={{ marginTop: '2rem', fontSize: '1.5rem' }}
+                  >
+                    Popular Right Now
+                  </PlaceholderTitle>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns:
+                        'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: '1.5rem',
+                      marginTop: '2rem',
+                      maxWidth: '800px',
+                      margin: '2rem auto 0',
+                    }}
+                  >
+                    {suggestions.slice(0, 6).map(item => (
+                      <div
+                        key={`${item.media_type}-${item.id}`}
+                        style={{
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                        }}
+                        onClick={() => setSearchQuery(item.title)}
+                      >
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '250px',
+                            backgroundColor: '#e5e7eb',
+                            borderRadius: '8px',
+                            marginBottom: '0.5rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '3rem',
+                          }}
+                        >
+                          {item.media_type === 'movie' ? '🎬' : '📺'}
+                        </div>
+                        <h4
+                          style={{
+                            fontSize: '0.9rem',
+                            fontWeight: '600',
+                            color: '#374151',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {item.title}
+                        </h4>
+                        <p
+                          style={{
+                            fontSize: '0.8rem',
+                            color: '#6b7280',
+                            marginTop: '0.25rem',
+                          }}
+                        >
+                          ⭐ {item.vote_average?.toFixed(1)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </PlaceholderMessage>
+          )}
         </ResultsContainer>
       </div>
     </SearchContainer>

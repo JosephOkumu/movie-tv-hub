@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
+import { useNavigate } from 'react-router-dom';
 import { useWatchlist } from '../context/WatchlistContext';
 import WatchlistItem from '../components/watchlist/WatchlistItem';
 import WatchlistStats from '../components/watchlist/WatchlistStats';
@@ -204,6 +205,7 @@ const BulkActionButton = styled.button<{
 `;
 
 const Watchlist: React.FC = () => {
+  const navigate = useNavigate();
   const {
     watchlist,
     removeFromWatchlist,
@@ -219,7 +221,7 @@ const Watchlist: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleExploreClick = () => {
-    window.location.href = '/search';
+    navigate('/trending');
   };
 
   const handleRemove = (id: number) => {

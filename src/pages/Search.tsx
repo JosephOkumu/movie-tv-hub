@@ -331,45 +331,143 @@ const Search: React.FC = () => {
                         style={{
                           cursor: 'pointer',
                           textAlign: 'center',
+                          background: 'white',
+                          borderRadius: '12px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          overflow: 'hidden',
+                          transition: 'transform 0.2s, box-shadow 0.2s',
                         }}
                         onClick={() => setSearchQuery(item.title)}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.transform = 'translateY(-4px)';
+                          e.currentTarget.style.boxShadow =
+                            '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow =
+                            '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
+                        }}
                       >
                         <div
                           style={{
                             width: '100%',
                             height: '250px',
-                            backgroundColor: '#e5e7eb',
-                            borderRadius: '8px',
-                            marginBottom: '0.5rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '3rem',
-                          }}
-                        >
-                          {item.media_type === 'movie' ? '🎬' : '📺'}
-                        </div>
-                        <h4
-                          style={{
-                            fontSize: '0.9rem',
-                            fontWeight: '600',
-                            color: '#374151',
+                            backgroundColor: '#f3f4f6',
+                            position: 'relative',
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
                           }}
                         >
-                          {item.title}
-                        </h4>
-                        <p
-                          style={{
-                            fontSize: '0.8rem',
-                            color: '#6b7280',
-                            marginTop: '0.25rem',
-                          }}
-                        >
-                          ⭐ {item.vote_average?.toFixed(1)}
-                        </p>
+                          {item.poster_path ? (
+                            <img
+                              src={`https://image.tmdb.org/t/p/w342${item.poster_path}`}
+                              alt={item.title}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                              }}
+                              onError={e => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `
+                                    <div style="
+                                      width: 100%;
+                                      height: 100%;
+                                      display: flex;
+                                      align-items: center;
+                                      justify-content: center;
+                                      font-size: 3rem;
+                                      background: #e5e7eb;
+                                    ">
+                                      ${item.media_type === 'movie' ? '🎬' : '📺'}
+                                    </div>
+                                  `;
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '3rem',
+                                background: '#e5e7eb',
+                                color: '#9ca3af',
+                              }}
+                            >
+                              {item.media_type === 'movie' ? '🎬' : '📺'}
+                            </div>
+                          )}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: '8px',
+                              left: '8px',
+                              background:
+                                item.media_type === 'movie'
+                                  ? '#3b82f6'
+                                  : '#64748b',
+                              color: 'white',
+                              padding: '4px 8px',
+                              borderRadius: '9999px',
+                              fontSize: '0.75rem',
+                              fontWeight: 'bold',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {item.media_type === 'movie' ? 'Movie' : 'TV'}
+                          </div>
+                          {item.vote_average && item.vote_average > 0 && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                top: '8px',
+                                right: '8px',
+                                background: 'rgba(0, 0, 0, 0.8)',
+                                color: 'white',
+                                padding: '4px 8px',
+                                borderRadius: '9999px',
+                                fontSize: '0.75rem',
+                                fontWeight: 'bold',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              ⭐ {item.vote_average.toFixed(1)}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ padding: '12px' }}>
+                          <h4
+                            style={{
+                              fontSize: '0.9rem',
+                              fontWeight: '600',
+                              color: '#374151',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              margin: '0 0 4px 0',
+                            }}
+                          >
+                            {item.title}
+                          </h4>
+                          <p
+                            style={{
+                              fontSize: '0.8rem',
+                              color: '#6b7280',
+                              margin: 0,
+                            }}
+                          >
+                            Click to search
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>

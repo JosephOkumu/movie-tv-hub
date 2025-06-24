@@ -262,6 +262,10 @@ const SearchResultCard: React.FC<SearchResultCardProps> = ({
               )}
               alt={getTitle()}
               loading="lazy"
+              onError={e => {
+                console.error('Failed to load image:', e.currentTarget.src);
+                console.log('Result data:', result);
+              }}
             />
           ) : (
             <PosterPlaceholder>
